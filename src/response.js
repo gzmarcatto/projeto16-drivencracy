@@ -48,7 +48,7 @@ export async function getPoll(req, res) {
   getRegisteredPolls.map((poll) => {
     const formatDate = new Date(poll.expireAt);
     const year = formatDate.getFullYear();
-    const month = formatDate.getMonth().toString().padStart(2, "0");
+    const month = (formatDate.getMonth() + 1).toString().padStart(2, "0");
     const day = formatDate.getDate().toString().padStart(2, "0");
     const hour = formatDate.getHours().toString().padStart(2, "0");
     const minute = formatDate.getMinutes().toString().padStart(2, "0");
