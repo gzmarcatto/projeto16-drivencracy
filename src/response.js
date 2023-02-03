@@ -5,6 +5,7 @@ import { MongoClient, ObjectId } from "mongodb";
 const collections = {
   registeredPolls: "registered-polls",
   registeredChoices: "registered-choices",
+  registeredVotes: "registered-votes",
 };
 
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
@@ -117,6 +118,41 @@ export async function getChoice(req, res) {
       .toArray();
     if (allChoicesById.length === 0) return res.sendStatus(404);
     return res.send(allChoicesById);
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+export async function postChoiceVote(req, res) {
+  try {
+    const choiceId = req.params.id;
+
+    const IdSchema = joi.string().length(24);
+    const validateIdSchema = IdSchema.validate(choiceId);
+    if (validateIdSchema.error) {
+      const errors = validateIdSchema.error.details.map((detail) => detail.message);
+      console.log(validateIdSchema.error.details);
+      return res.status(422).send(errors);
+    }
+
+    const existsChoiceId = await db
+      .collection(collections.registeredChoices)
+      .findOne({ _id: new ObjectId(choiceId) });
+    if (!existsChoiceId) return res.sendStatus(404);
+
+    const existsPoll = await db
+      .collection(collections.registeredPolls)
+      .findOne({ _id: new ObjectId(existsChoiceId.pollId) });
+    const today = Date.now();
+    if (today > existsPoll.expireAt) return res.sendStatus(403);
+
+    await db.collection(collections.registeredVotes).insertOne({
+      pollId: existsPoll._id.toString,
+      choiceTitle: existsChoiceId.title,
+      timestamp: today,
+    });
+
+    return res.sendStatus(201);
   } catch (error) {
     console.log(error);
   }
