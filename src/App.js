@@ -1,10 +1,17 @@
-import express from "express"
-import cors from "cors"
-import {} from "response.js"
+import express from 'express';
+import cors from 'cors';
 
-const PORT = 5000;
+import { listenServer, postNewPoll, getPoll, postChoice } from './response.js';
+
+const PORT = process.env.PORT || 5000;
 const server = express();
 server.use(cors());
 server.use(express.json());
 
-server.listen(PORT, listenServer)
+
+
+server.post(`/poll`, postNewPoll);
+server.get(`/poll`, getPoll);
+server.post(`/choice`, postChoice);
+
+server.listen(PORT, listenServer(PORT));
