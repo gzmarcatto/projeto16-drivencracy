@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 
-import { listenServer, postNewPoll, getPoll, postChoice, getChoice, postChoiceVote } from './response.js';
+import { listenServer, postNewPoll, getPoll, postChoice, getChoice, postChoiceVote, getResult } from './response.js';
 
 const PORT = process.env.PORT || 5000;
 const server = express();
@@ -15,5 +15,6 @@ server.get(`/poll`, getPoll);
 server.post(`/choice`, postChoice);
 server.get(`/poll/:id/choice`, getChoice);
 server.post(`/choice/:id/vote`, postChoiceVote)
+server.get(`/poll/:id/result`, getResult)
 
 server.listen(PORT, listenServer(PORT));

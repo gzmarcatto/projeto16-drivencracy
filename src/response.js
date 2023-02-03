@@ -1,7 +1,7 @@
 import joi from "joi";
-
 import dotenv from "dotenv/config";
 import { MongoClient, ObjectId } from "mongodb";
+
 const collections = {
   registeredPolls: "registered-polls",
   registeredChoices: "registered-choices",
@@ -19,8 +19,6 @@ export async function postNewPoll(req, res) {
   try {
     const newPollInfo = req.body;
     const standardExpireTime = 30 * 24 * 60 * 60 * 1000; // dias * horas * minutos * segundos * milissegundos
-    const dataTeste = "2020-02-13 01:00";
-    const timestampNewDate = new Date(dataTeste).getTime();
     const newPollSchema = joi.object({
       title: joi.string().required(),
       expireAt: joi.date().allow(null),
@@ -42,6 +40,7 @@ export async function postNewPoll(req, res) {
     return res.sendStatus(201);
   } catch (error) {
     console.log(error);
+    return res.sendStatus(500)
   }
 }
 
@@ -61,6 +60,7 @@ export async function getPoll(req, res) {
     return res.status(200).send(getRegisteredPolls);
   } catch (error) {
     console.log(error);
+    return res.sendStatus(500)
   }
 }
 
@@ -106,6 +106,7 @@ export async function postChoice(req, res) {
     return res.sendStatus(201);
   } catch (error) {
     console.log(error);
+    return res.sendStatus(500)
   }
 }
 
@@ -120,6 +121,7 @@ export async function getChoice(req, res) {
     return res.send(allChoicesById);
   } catch (error) {
     console.log(error);
+    return res.sendStatus(500)
   }
 }
 
@@ -147,7 +149,7 @@ export async function postChoiceVote(req, res) {
     if (today > existsPoll.expireAt) return res.sendStatus(403);
 
     await db.collection(collections.registeredVotes).insertOne({
-      pollId: existsPoll._id.toString,
+      pollId: existsPoll._id.toString(),
       choiceTitle: existsChoiceId.title,
       timestamp: today,
     });
@@ -155,6 +157,36 @@ export async function postChoiceVote(req, res) {
     return res.sendStatus(201);
   } catch (error) {
     console.log(error);
+    return res.sendStatus(500)
+  }
+}
+
+export async function getResult(req, res) {
+  try {
+    const pollId = req.params.id;
+    const existsVotes = await db
+      .collection(collections.registeredVotes)
+      .findOne({ pollId: pollId });
+    if (!existsVotes) return res.sendStatus(404);
+    const arrayVotes = await db
+      .collection(collections.registeredVotes)
+      .aggregate([{ $match: { pollId: pollId } }, { $sortByCount: "$choiceTitle" }])
+      .toArray();
+    const returnPoll = await db
+      .collection(collections.registeredPolls)
+      .findOne({ _id: new ObjectId(pollId) });
+    const { _id, title, expireAt } = returnPoll;
+    const result = {
+      _id,
+      title,
+      expireAt,
+      result: { title: arrayVotes[0]._id, votes: arrayVotes[0].count },
+    };
+    console.log(result);
+    return res.send();
+  } catch (error) {
+    console.log(error);
+    return res.sendStatus(500)
   }
 }
 
