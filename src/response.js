@@ -1,9 +1,10 @@
 import joi from "joi";
 
 import dotenv from "dotenv/config";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 const collections = {
   registeredPolls: "registered-polls",
+  registeredChoices: "registered-choices",
 };
 
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
@@ -44,21 +45,68 @@ export async function postNewPoll(req, res) {
 }
 
 export async function getPoll(req, res) {
-  const getRegisteredPolls = await db.collection(collections.registeredPolls).find().toArray();
-  getRegisteredPolls.map((poll) => {
-    const formatDate = new Date(poll.expireAt);
-    const year = formatDate.getFullYear();
-    const month = (formatDate.getMonth() + 1).toString().padStart(2, "0");
-    const day = formatDate.getDate().toString().padStart(2, "0");
-    const hour = formatDate.getHours().toString().padStart(2, "0");
-    const minute = formatDate.getMinutes().toString().padStart(2, "0");
-    poll.expireAt = `${year}-${month}-${day} ${hour}:${minute}`;
-  });
-  if (!getRegisteredPolls) return res.sendStatus(401);
-  return res.status(200).send(getRegisteredPolls);
+  try {
+    const getRegisteredPolls = await db.collection(collections.registeredPolls).find().toArray();
+    getRegisteredPolls.map((poll) => {
+      const formatDate = new Date(poll.expireAt);
+      const year = formatDate.getFullYear();
+      const month = (formatDate.getMonth() + 1).toString().padStart(2, "0");
+      const day = formatDate.getDate().toString().padStart(2, "0");
+      const hour = formatDate.getHours().toString().padStart(2, "0");
+      const minute = formatDate.getMinutes().toString().padStart(2, "0");
+      poll.expireAt = `${year}-${month}-${day} ${hour}:${minute}`;
+    });
+    if (!getRegisteredPolls) return res.sendStatus(401);
+    return res.status(200).send(getRegisteredPolls);
+  } catch (error) {
+    console.log(error);
+  }
 }
 
-export async function postChoice(req, res) {}
+export async function postChoice(req, res) {
+  try {
+    const { title, pollId } = req.body;
+
+    //validação dos inputs
+    const choiceSchema = joi.object({
+      title: joi.string().required(),
+      pollId: joi.any(),
+    });
+    const validateChoiceSchema = choiceSchema.validate({ title: title, pollId: pollId });
+    if (validateChoiceSchema.error) {
+      const errors = validateChoiceSchema.error.details.map((detail) => detail.message);
+      console.log(validateChoiceSchema.error.details);
+      return res.status(422).send(errors);
+    }
+
+    //verifica existência da poll e se está ativa
+    const existsPoll = await db
+      .collection(collections.registeredPolls)
+      .findOne({ _id: new ObjectId(pollId) });
+    if (!existsPoll) {
+      return res.sendStatus(404);
+    } else {
+      const today = Date.now();
+      if (today > existsPoll.expireAt) return res.sendStatus(403);
+    }
+
+    //verifica escolha repetida
+    const repeatedPollChoices = await db
+      .collection(collections.registeredChoices)
+      .findOne({ pollId: pollId, title: title });
+    if (repeatedPollChoices) {
+      return res.sendStatus(409);
+    }
+    const newPollChoice = {
+      pollId: pollId,
+      title: title,
+    };
+    await db.collection(collections.registeredChoices).insertOne(newPollChoice);
+    return res.sendStatus(201);
+  } catch (error) {
+    console.log(error);
+  }
+}
 
 export async function listenServer(PORT) {
   console.log(`Servidor rodando na porta ${PORT}`);
