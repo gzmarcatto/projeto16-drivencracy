@@ -108,6 +108,20 @@ export async function postChoice(req, res) {
   }
 }
 
+export async function getChoice(req, res) {
+  try {
+    const pollId = req.params.id;
+    const allChoicesById = await db
+      .collection(collections.registeredChoices)
+      .find({ pollId: pollId })
+      .toArray();
+    if (allChoicesById.length === 0) return res.sendStatus(404);
+    return res.send(allChoicesById);
+  } catch (error) {
+    console.log(error);
+  }
+}
+
 export async function listenServer(PORT) {
   console.log(`Servidor rodando na porta ${PORT}`);
 }
